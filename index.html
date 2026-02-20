@@ -1,14 +1,466 @@
-<!DOCTYPE html>
-<html lang="en">
 
+<!DOCTYPE html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>김밥 로또</title>
+    <style>
+        :root {
+            --color-bg: #f0e8d9;
+            --color-kimbap: #2c3e50;
+            --color-rice: #fdfdfd;
+            --color-slot: #dcdcdc;
+            --color-text: #34495e;
+
+            --lotto-yellow: #fbc531;
+            --lotto-blue: #487eb0;
+            --lotto-red: #e84118;
+            --lotto-gray: #7f8c8d;
+            --lotto-green: #27ae60;
+        }
+
+        @keyframes slice-animation {
+            0% { transform: translateX(-150%) rotate(-15deg); opacity: 0; }
+            20% { opacity: 1; }
+            50% { transform: translateX(0) rotate(25deg); }
+            100% { transform: translateX(150%) rotate(60deg); opacity: 0; }
+        }
+
+        @keyframes pop-and-move {
+            0% {
+                transform: translate(0, 0) scale(0.8);
+                opacity: 0;
+            }
+            20% {
+                transform: translate(0, -60px) scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: var(--end-transform) scale(0.6);
+                opacity: 1;
+            }
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        @keyframes slot-fill {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .game-container {
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .message {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--color-text);
+            height: 40px;
+            margin-bottom: 40px;
+        }
+
+        .kimbap-area {
+            position: relative;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 60px;
+        }
+
+        #kimbap {
+            width: 600px;
+            max-width: 90vw;
+            height: 100px;
+            background-color: var(--color-kimbap);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: width 0.3s ease-in-out, transform 0.1s ease;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 5px solid #222;
+        }
+        
+        #kimbap:active {
+            transform: scale(0.98);
+        }
+
+        .knife {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            top: 50%;
+            left: 50%;
+            margin-top: -75px;
+            margin-left: -75px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .knife.slicing {
+            animation: slice-animation 0.4s ease-in-out forwards;
+        }
+
+        .slots-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            background-color: rgba(255,255,255,0.5);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+        }
+
+        .slot {
+            width: 60px;
+            height: 60px;
+            background-color: var(--color-slot);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: background-color 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .slot .number-display {
+            transform: scale(0);
+            opacity: 0;
+        }
+
+        .slot .number-display.filled {
+             animation: slot-fill 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .result-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .result-modal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: all;
+        }
+
+        .result-modal h2 {
+            margin-top: 0;
+            font-size: 2rem;
+            color: var(--color-text);
+        }
+        
+        .result-numbers {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .result-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .retry-button {
+            background-color: var(--lotto-green);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 20px;
+        }
+
+        .retry-button:hover {
+            background-color: #2ecc71;
+        }
+
+        .kimbap-slice {
+            position: absolute;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        #confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 200;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f1c40f;
+            opacity: 0;
+        }
+
+    </style>
 </head>
-
 <body>
-    <h1>Deploy Test</h1>
-</body>
 
+    <div id="confetti-container"></div>
+
+    <div class="game-container">
+        <p class="message" id="message">김밥을 눌러서 번호를 뽑으세요!</p>
+        
+        <div class="kimbap-area">
+            <div id="kimbap"></div>
+            <svg class="knife" viewBox="0 0 100 100">
+                <g transform="rotate(45 50 50)">
+                    <rect x="45" y="10" width="10" height="80" rx="5" fill="#e0e0e0"/>
+                    <path d="M45,10 L30,10 Q20,10 20,20 L20,30 L45,30 Z" fill="#d0d0d0" />
+                    <rect x="55" y="20" width="20" height="15" rx="3" fill="#8d6e63"/>
+                </g>
+            </svg>
+        </div>
+
+        <div class="slots-container" id="slots-container">
+            <!-- Slots will be generated by JS -->
+        </div>
+    </div>
+
+    <div class="result-modal" id="result-modal">
+        <h2>이번 주 행운의 번호!</h2>
+        <div class="result-numbers" id="result-numbers">
+        </div>
+        <button class="retry-button" id="retry-button">다시 하기</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const kimbap = document.getElementById('kimbap');
+            const knife = document.querySelector('.knife');
+            const message = document.getElementById('message');
+            const slotsContainer = document.getElementById('slots-container');
+            const resultModal = document.getElementById('result-modal');
+            const resultNumbersContainer = document.getElementById('result-numbers');
+            const retryButton = document.getElementById('retry-button');
+            const confettiContainer = document.getElementById('confetti-container');
+
+            const TOTAL_NUMBERS = 6;
+            const KMBAP_INITIAL_WIDTH = 600;
+            
+            let lottoNumbers = [];
+            let drawnNumbers = [];
+            let isAnimating = false;
+
+            function getNumberColor(num) {
+                if (num <= 10) return 'var(--lotto-yellow)';
+                if (num <= 20) return 'var(--lotto-blue)';
+                if (num <= 30) return 'var(--lotto-red)';
+                if (num <= 40) return 'var(--lotto-gray)';
+                return 'var(--lotto-green)';
+            }
+
+            function generateLottoNumbers() {
+                const numbers = new Set();
+                while (numbers.size < TOTAL_NUMBERS) {
+                    const randomNum = Math.floor(Math.random() * 45) + 1;
+                    numbers.add(randomNum);
+                }
+                return Array.from(numbers);
+            }
+
+            function createSlots() {
+                slotsContainer.innerHTML = '';
+                for (let i = 0; i < TOTAL_NUMBERS; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'slot';
+                    slot.id = `slot-${i}`;
+                    slotsContainer.appendChild(slot);
+                }
+            }
+
+            function resetGame() {
+                lottoNumbers = generateLottoNumbers();
+                drawnNumbers = [];
+                isAnimating = false;
+
+                kimbap.style.width = `${KMBAP_INITIAL_WIDTH}px`;
+                if(window.innerWidth < 768) {
+                     kimbap.style.width = `90vw`;
+                }
+                
+                message.style.display = 'block';
+                resultModal.classList.remove('show');
+                confettiContainer.innerHTML = '';
+
+                createSlots();
+            }
+
+            function triggerConfetti() {
+                for (let i = 0; i < 100; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    const confettiColors = ['var(--lotto-yellow)', 'var(--lotto-blue)', 'var(--lotto-red)', 'var(--lotto-gray)', 'var(--lotto-green)'];
+                    confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+                    
+                    confetti.style.left = `${Math.random() * 100}vw`;
+                    confetti.style.top = `${Math.random() * -50}px`; // Start from above the screen
+                    confetti.style.width = `${Math.random() * 10 + 5}px`;
+                    confetti.style.height = confetti.style.width;
+                    confetti.style.opacity = Math.random() + 0.5;
+                    confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    
+                    const duration = Math.random() * 3 + 2;
+                    const delay = Math.random() * 1;
+
+                    confetti.style.animation = `confetti-fall ${duration}s linear ${delay}s forwards`;
+
+                    confettiContainer.appendChild(confetti);
+                    
+                    setTimeout(() => {
+                        confetti.remove();
+                    }, (duration + delay) * 1000);
+                }
+            }
+
+            function showResult() {
+                resultNumbersContainer.innerHTML = '';
+                drawnNumbers.forEach(num => {
+                    const resultNumberDiv = document.createElement('div');
+                    resultNumberDiv.className = 'result-number';
+                    resultNumberDiv.style.backgroundColor = getNumberColor(num);
+                    resultNumberDiv.textContent = num;
+                    resultNumbersContainer.appendChild(resultNumberDiv);
+                });
+                resultModal.classList.add('show');
+                triggerConfetti();
+            }
+
+            function handleKimbapClick() {
+                if (isAnimating || drawnNumbers.length >= TOTAL_NUMBERS) {
+                    return;
+                }
+
+                isAnimating = true;
+                if(drawnNumbers.length === 0) {
+                    message.style.display = 'none';
+                }
+
+                knife.classList.add('slicing');
+
+                setTimeout(() => {
+                    const kimbapRect = kimbap.getBoundingClientRect();
+                    const currentWidth = kimbap.offsetWidth;
+                    const newWidth = currentWidth - (kimbapRect.width / (TOTAL_NUMBERS - drawnNumbers.length));
+                    kimbap.style.width = `${newWidth > 0 ? newWidth : 0}px`;
+
+                    const sliceNumber = lottoNumbers[drawnNumbers.length];
+                    const numberColor = getNumberColor(sliceNumber);
+                    const targetSlot = document.getElementById(`slot-${drawnNumbers.length}`);
+
+                    const slice = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    slice.setAttribute('class', 'kimbap-slice');
+                    slice.setAttribute('width', '100');
+                    slice.setAttribute('height', '100');
+                    slice.setAttribute('viewBox', '0 0 100 100');
+                    slice.innerHTML = `
+                        <circle cx="50" cy="50" r="48" fill="var(--color-kimbap)" />
+                        <circle cx="50" cy="50" r="40" fill="var(--color-rice)" />
+                        <text x="50" y="50" dominant-baseline="central" text-anchor="middle" font-size="40" font-weight="bold" fill="${numberColor}">${sliceNumber}</text>
+                    `;
+                    document.body.appendChild(slice);
+                    
+                    const kimbapSliceStartX = kimbapRect.left + kimbapRect.width / 2;
+                    const kimbapSliceStartY = kimbapRect.top;
+
+                    slice.style.left = `${kimbapSliceStartX - 50}px`;
+                    slice.style.top = `${kimbapSliceStartY}px`;
+                    
+                    const slotRect = targetSlot.getBoundingClientRect();
+                    const endX = slotRect.left + slotRect.width / 2 - kimbapSliceStartX;
+                    const endY = slotRect.top + slotRect.height / 2 - kimbapSliceStartY;
+
+                    slice.style.setProperty('--end-transform', `translate(${endX}px, ${endY}px)`);
+                    slice.style.animation = `pop-and-move 1s cubic-bezier(0.5, -0.5, 0.5, 1.5) forwards`;
+
+                    slice.addEventListener('animationend', () => {
+                        slice.remove();
+                        targetSlot.style.backgroundColor = numberColor;
+                        targetSlot.innerHTML = `<span class="number-display filled">${sliceNumber}</span>`;
+                        drawnNumbers.push(sliceNumber);
+                        
+                        if (drawnNumbers.length >= TOTAL_NUMBERS) {
+                            setTimeout(showResult, 500);
+                        }
+                        
+                        isAnimating = false;
+                    }, { once: true });
+
+                }, 150);
+                
+                setTimeout(() => {
+                     knife.classList.remove('slicing');
+                }, 400)
+
+            }
+
+            kimbap.addEventListener('click', handleKimbapClick);
+            kimbap.addEventListener('touchstart', handleKimbapClick, {passive: true});
+            retryButton.addEventListener('click', resetGame);
+            
+            window.addEventListener('resize', () => {
+                 if(drawnNumbers.length === 0 && window.innerWidth < 768) {
+                     kimbap.style.width = `90vw`;
+                 }
+            });
+
+            // Initialize
+            resetGame();
+        });
+    </script>
+</body>
 </html>
